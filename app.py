@@ -1,7 +1,16 @@
 
 import streamlit as st
 import os, sys
-sys.path.insert(0, '/content/nl-to-code-generator')
+
+# ─── Load API Key (works both in Colab and Streamlit Cloud) ─────
+if "GROQ_API_KEY" not in os.environ:
+    try:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        st.error("⚠️ GROQ_API_KEY not found. Please add it to your secrets.")
+        st.stop()
+
+sys.path.insert(0, os.path.dirname(__file__))
 from generator import generate_code, fix_code, explain_code
 
 # ─── Page Config ────────────────────────────────────────────────
@@ -38,101 +47,72 @@ st.markdown('<div class="subtitle">Generate · Fix · Explain code using AI</div
 if "count" not in st.session_state:
     st.session_state.count = 0
 
-st.markdown(f'<div class="counter-box">⚡ Snippets Generated: {st.session_state.count}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="counter-box">⚡ Snippets Generated: {st.session_state.count}</div>',
+            unsafe_allow_html=True)
 st.divider()
 
 # ─── Mode Selector ──────────────────────────────────────────────
-mode = st.radio(
-    "Select Mode:",
-    ["🧠 Generate Code", "🐛 Fix My Code", "📖 Explain Code"],
-    horizontal=True
-)
+mode = st.radio("Select Mode:", ["🧠 Generate Code", "🐛 Fix My Code", "📖 Explain Code"], horizontal=True)
 st.markdown("<br>", unsafe_allow_html=True)
-
 language = st.selectbox("🌐 Language", ["Python", "JavaScript", "SQL", "Bash"])
 
 # ─── Mode: Generate ─────────────────────────────────────────────
 if mode == "🧠 Generate Code":
-    user_input = st.text_area(
-        "✍️ Describe what you want to build:",
-        height=130,
-        placeholder="e.g. Write a function to check if a number is prime..."
-    )
-    btn = st.button("⚡ Generate Code")
-
-    if btn:
+    user_input = st.text_area("✍️ Describe what you want to build:", height=130,
+                               placeholder="e.g. Write a function to check if a number is prime...")
+    if st.button("⚡ Generate Code"):
         if not user_input.strip():
             st.warning("⚠️ Please describe what you want to build.")
         else:
             with st.spinner("🧠 Generating your code..."):
                 result = generate_code(user_input, language)
             st.session_state.count += 1
-
             st.markdown('<div class="output-header">📋 Generated Code</div>', unsafe_allow_html=True)
             st.code(result["code"], language=language.lower())
             st.download_button("📥 Download Code", data=result["code"],
                 file_name=f"generated.{'py' if language=='Python' else 'js' if language=='JavaScript' else 'sql' if language=='SQL' else 'sh'}",
                 mime="text/plain")
-
             if result["explanation"]:
                 st.markdown('<div class="output-header">💡 Explanation</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="explanation-box">{result["explanation"]}</div>', unsafe_allow_html=True)
 
 # ─── Mode: Fix Code ─────────────────────────────────────────────
 elif mode == "🐛 Fix My Code":
-    broken_code = st.text_area(
-        "🐛 Paste your broken code here:",
-        height=150,
-        placeholder="Paste the code that has errors..."
-    )
-    error_msg = st.text_area(
-        "❌ Paste the error message (optional):",
-        height=80,
-        placeholder="e.g. TypeError: unsupported operand type..."
-    )
-    btn = st.button("🔧 Fix My Code")
-
-    if btn:
+    broken_code = st.text_area("🐛 Paste your broken code here:", height=150,
+                                placeholder="Paste the code that has errors...")
+    error_msg = st.text_area("❌ Paste the error message (optional):", height=80,
+                              placeholder="e.g. TypeError: unsupported operand type...")
+    if st.button("🔧 Fix My Code"):
         if not broken_code.strip():
             st.warning("⚠️ Please paste your broken code first.")
         else:
             with st.spinner("🔧 Fixing your code..."):
                 result = fix_code(broken_code, error_msg, language)
             st.session_state.count += 1
-
             st.markdown('<div class="output-header">✅ Fixed Code</div>', unsafe_allow_html=True)
             st.code(result["code"], language=language.lower())
             st.download_button("📥 Download Fixed Code", data=result["code"],
                 file_name=f"fixed.{'py' if language=='Python' else 'js' if language=='JavaScript' else 'sql' if language=='SQL' else 'sh'}",
                 mime="text/plain")
-
             if result["explanation"]:
                 st.markdown('<div class="output-header">🔍 What Was Wrong</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="explanation-box">{result["explanation"]}</div>', unsafe_allow_html=True)
 
 # ─── Mode: Explain Code ─────────────────────────────────────────
 elif mode == "📖 Explain Code":
-    code_input = st.text_area(
-        "📋 Paste any code to explain:",
-        height=150,
-        placeholder="Paste any code here and AI will explain it in plain English..."
-    )
-    btn = st.button("📖 Explain This Code")
-
-    if btn:
+    code_input = st.text_area("📋 Paste any code to explain:", height=150,
+                               placeholder="Paste any code here and AI will explain it...")
+    if st.button("📖 Explain This Code"):
         if not code_input.strip():
             st.warning("⚠️ Please paste some code first.")
         else:
             with st.spinner("📖 Analyzing your code..."):
                 result = explain_code(code_input, language)
             st.session_state.count += 1
-
             st.markdown('<div class="output-header">💡 Code Explanation</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="explanation-box">{result["explanation"]}</div>', unsafe_allow_html=True)
 
 # ─── Footer ─────────────────────────────────────────────────────
 st.divider()
-st.markdown(
-    "<center style='color:#555; font-size:0.8rem;'>Built with ❤️ using Groq + LLaMA 3 + Streamlit</center>",
-    unsafe_allow_html=True
-)
+st.markdown("<center style='color:#555; font-size:0.8rem;'>Built with ❤️ using Groq + LLaMA 3 + Streamlit</center>",
+            unsafe_allow_html=True)
